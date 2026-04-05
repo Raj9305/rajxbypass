@@ -15,8 +15,9 @@ MONGO_URL = os.environ.get("MONGO_URL", "")
 ADMIN_ID = int(os.environ.get("ADMIN_ID", 0)) 
 
 BYPASS_API_KEY = os.environ.get("BYPASS_API_KEY", "SH4DAW-D4DY")
-FORCE_SUB_LINK = os.environ.get("FORCE_SUB_LINK", "https://t.me/+T-IiOXWR6dFiZDA9")
-FSUB_ID = os.environ.get("FSUB_ID", "") # Numeric ID like -100xxx
+# Naya Link Update Kar Diya
+FORCE_SUB_LINK = "https://t.me/+4hW0nmW34rRjN2Fl"
+FSUB_ID = os.environ.get("FSUB_ID", "") # Ismein Channel ki numeric ID zaroor daalna
 
 # --- 𝗗𝗔𝗧𝗔𝗕𝗔𝗦𝗘 ---
 db_client = MongoClient(MONGO_URL)
@@ -26,7 +27,7 @@ chats_col = db['chats']
 
 server = Flask(__name__)
 @server.route('/')
-def status(): return '𝗕𝗢𝗧 𝗜𝗦 𝗔𝗟𝗜𝗩𝗘'
+def status(): return '𝗙𝗢𝗥𝗖𝗘 𝗝𝗢𝗜𝗡 𝗕𝗢𝗧 𝗔𝗟𝗜𝗩𝗘'
 
 app = Client("BypassBot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
@@ -43,28 +44,30 @@ async def is_subscribed(client, message):
         await client.get_chat_member(FSUB_ID, message.from_user.id)
         return True
     except UserNotParticipant:
+        # Strict Force Join Message
         await message.reply_text(
-            f"⚠️ **𝗛𝗘𝗟𝗟𝗢 @{message.from_user.username} !!**\n\n"
-            f"**𝗬𝗢𝗨 𝗠𝗨𝗦𝗧 𝗝𝗢𝗜𝗡 𝗢𝗨𝗥 𝗚𝗥𝗢𝗨𝗣 𝗧𝗢 𝗨𝗦𝗘 𝗧𝗛𝗜𝗦 𝗕𝗢𝗧!**",
+            f"👋 **𝗛𝗘𝗟𝗟𝗢 @{message.from_user.username} !!**\n\n"
+            f"**𝗬𝗢𝗨 𝗠𝗨𝗦𝗧 𝗝𝗢𝗜𝗡 𝗢𝗨𝗥 𝗖𝗛𝗔𝗡𝗡𝗘𝗟 𝗧𝗢 𝗨𝗦𝗘 𝗧𝗛𝗜𝗦 𝗕𝗢𝗧!**\n\n"
+            f"**𝗝𝗢𝗜𝗡 𝗞𝗔𝗥𝗡𝗘 𝗞𝗘 𝗕𝗔𝗔𝗗 𝗙𝗜𝗥 𝗦𝗘 𝗟𝗜𝗡𝗞 𝗕𝗛𝗘𝗝𝗢.**",
             reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("➕ **𝗝𝗢𝗜𝗡 𝗢𝗨𝗥 𝗚𝗥𝗢𝗨𝗣** ➕", url=FORCE_SUB_LINK)
+                InlineKeyboardButton("➕ **𝗝𝗢𝗜𝗡 𝗖𝗛𝗔𝗡𝗡𝗘𝗟** ➕", url=FORCE_SUB_LINK)
             ]])
         )
         return False
-    except: return True
+    except Exception: return True
 
-# --- 𝗔𝗨𝗧𝗢 𝗦𝗔𝗩𝗘 𝗖𝗛𝗔𝗧𝗦 ---
+# --- 𝗔𝗨𝗧𝗢 𝗦𝗔𝗩𝗘 ---
 @app.on_message(filters.new_chat_members)
 async def auto_save_group(client, message):
     if any(m.id == (await client.get_me()).id for m in message.new_chat_members):
         add_serve(message.chat.id, is_group=True)
 
-# --- 𝗢𝗪𝗡𝗘𝗥 𝗖𝗢𝗠𝗠𝗔𝗡𝗗𝗦 ---
+# --- 𝗔𝗗𝗠𝗜𝗡 𝗖𝗢𝗠𝗠𝗔𝗡𝗗𝗦 ---
 @app.on_message(filters.command("stats") & filters.user(ADMIN_ID))
 async def stats(client, message):
     u_count = users_col.count_documents({})
     c_count = chats_col.count_documents({})
-    await message.reply_text(f"📊 **𝗦𝗧𝗔𝗧𝗦:**\n\n👤 **𝗨𝗦𝗘𝗥𝗦: {u_count}**\n👥 **𝗚𝗥𝗢𝗨𝗣𝗦: {c_count}**")
+    await message.reply_text(f"📊 **𝗦𝗧𝗔𝗧𝗦:**\n\n👤 **𝗨𝗦𝗘𝗥𝗦: {u_count}**\n👥 **𝗖𝗛𝗔𝗧𝗦: {c_count}**")
 
 @app.on_message(filters.command("broadcast") & filters.user(ADMIN_ID) & filters.reply)
 async def broadcast(client, message):
@@ -83,7 +86,7 @@ async def broadcast(client, message):
             except: pass
     await status.edit(f"📢 **𝗕𝗥𝗢𝗔𝗗𝗖𝗔𝗦𝗧 𝗗𝗢𝗡𝗘! 𝗧𝗢𝗧𝗔𝗟: {done}**")
 
-# --- 𝗣𝗨𝗕𝗟𝗜𝗖 𝗕𝗬𝗣𝗔𝗦𝗦 𝗟𝗢𝗚𝗜𝗖 ---
+# --- 𝗠𝗔𝗜𝗡 𝗟𝗢𝗚𝗜𝗖 ---
 @app.on_message(filters.command("start") & filters.private)
 async def start(client, message):
     add_serve(message.from_user.id)
@@ -91,11 +94,11 @@ async def start(client, message):
     
     await message.reply_text(
         f"👋 **𝗛𝗘𝗟𝗟𝗢 @{message.from_user.username} !!**\n\n"
-        f"**𝗪𝗘𝗟𝗖𝗢𝗠𝗘 𝗧𝗢 𝗙𝗥𝗘𝗘 𝗕𝗬𝗣𝗔𝗦𝗦 𝗕𝗢𝗧 !**\n\n"
-        f"**𝗝𝗨𝗦𝗧 𝗦𝗘𝗡𝗗 𝗧𝗛𝗘 𝗟𝗜𝗡𝗞🔗𝗕𝗘𝗟𝗢𝗪 𝗧𝗢 𝗕𝗬𝗣𝗔𝗦𝗦!**",
+        f"**𝗪𝗘𝗟𝗖𝗢𝗠𝗘 𝗧𝗢 𝗔𝗔𝗩𝗬𝗔 𝗕𝗬𝗣𝗔𝗦𝗦 𝗕𝗢𝗧 !**\n\n"
+        f"**𝗝𝗨𝗦𝗧 𝗦𝗘𝗡𝗗 𝗧𝗛𝗘 𝗟𝗜𝗡𝗞 𝗕𝗘𝗟𝗢𝗪 𝗧𝗢 𝗕𝗬𝗣𝗔𝗦𝗦!**",
         reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("➕𝗔𝗗𝗗 𝗠𝗘 𝗧𝗢 𝗚𝗥𝗢𝗨𝗣➕", url=f"http://t.me/{app.me.username}?startgroup=true")],
-            [InlineKeyboardButton("𝗕𝗨𝗬 𝗔𝗣𝗜🚀", url="https://t.me/cyb3rB4nn3r")]
+            [InlineKeyboardButton("➕ **𝗔𝗗𝗗 𝗠𝗘 𝗧𝗢 𝗚𝗥𝗢𝗨𝗣** ➕", url=f"http://t.me/{app.me.username}?startgroup=true")],
+            [InlineKeyboardButton("💰 **𝗕𝗨𝗬 𝗔𝗣𝗜** 💰", url="https://t.me/cyb3rB4nn3r")]
         ])
     )
 
@@ -105,10 +108,10 @@ async def handle_bypass(client, message):
     if not user_link.startswith("http"): return
 
     add_serve(message.from_user.id)
+    # Strict Force Join Check
     if not await is_subscribed(client, message): return
 
     start_time = time.time()
-    # Initial Reaction
     try: await client.send_reaction(message.chat.id, message.id, "👀")
     except: pass
 
@@ -131,10 +134,9 @@ async def handle_bypass(client, message):
                 f"🚀 **𝗕𝗬𝗣𝗔𝗦𝗦𝗘𝗗:**\n> {bypassed}\n\n"
                 f"━━━━━━━━━━━━━━━\n"
                 f"⏱️ **𝗧𝗜𝗠𝗘 𝗧𝗔𝗞𝗘𝗡: `{time_taken:.2f}𝗦`**\n"
-                f"👩‍💻 **𝗠𝗔𝗜𝗡𝗧𝗔𝗜𝗡𝗘𝗗 𝗕𝗬: @aavyaxbots ✅**"
+                f"👩‍💻 **𝗗𝗘𝗩: @rajfflive ✅**"
             )
             
-            # Success Reaction
             try: await client.send_reaction(message.chat.id, message.id, "🔥")
             except: pass
             
