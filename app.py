@@ -16,7 +16,7 @@ ADMIN_ID = int(os.environ.get("ADMIN_ID", 0))
 
 BYPASS_API_KEY = os.environ.get("BYPASS_API_KEY", "SH4DAW-D4DY")
 FORCE_SUB_LINK = os.environ.get("FORCE_SUB_LINK", "https://t.me/+T-IiOXWR6dFiZDA9")
-FSUB_ID = os.environ.get("FSUB_ID", "") 
+FSUB_ID = os.environ.get("FSUB_ID", "") # Numeric ID like -100xxx
 
 # --- 𝗗𝗔𝗧𝗔𝗕𝗔𝗦𝗘 ---
 db_client = MongoClient(MONGO_URL)
@@ -26,7 +26,7 @@ chats_col = db['chats']
 
 server = Flask(__name__)
 @server.route('/')
-def status(): return '𝗕𝗢𝗧 𝗜𝗦 𝗥𝗨𝗡𝗡𝗜𝗡𝗚'
+def status(): return '𝗕𝗢𝗧 𝗜𝗦 𝗔𝗟𝗜𝗩𝗘'
 
 app = Client("BypassBot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
@@ -59,7 +59,7 @@ async def auto_save_group(client, message):
     if any(m.id == (await client.get_me()).id for m in message.new_chat_members):
         add_serve(message.chat.id, is_group=True)
 
-# --- 𝗢𝗪𝗡𝗘𝗥 𝗢𝗡𝗟𝗬 𝗙𝗘𝗔𝗧𝗨𝗥𝗘𝗦 ---
+# --- 𝗢𝗪𝗡𝗘𝗥 𝗖𝗢𝗠𝗠𝗔𝗡𝗗𝗦 ---
 @app.on_message(filters.command("stats") & filters.user(ADMIN_ID))
 async def stats(client, message):
     u_count = users_col.count_documents({})
@@ -83,7 +83,7 @@ async def broadcast(client, message):
             except: pass
     await status.edit(f"📢 **𝗕𝗥𝗢𝗔𝗗𝗖𝗔𝗦𝗧 𝗗𝗢𝗡𝗘! 𝗧𝗢𝗧𝗔𝗟: {done}**")
 
-# --- 𝗣𝗨𝗕𝗟𝗜𝗖 𝗙𝗘𝗔𝗧𝗨𝗥𝗘𝗦 ---
+# --- 𝗣𝗨𝗕𝗟𝗜𝗖 𝗕𝗬𝗣𝗔𝗦𝗦 𝗟𝗢𝗚𝗜𝗖 ---
 @app.on_message(filters.command("start") & filters.private)
 async def start(client, message):
     add_serve(message.from_user.id)
@@ -91,11 +91,11 @@ async def start(client, message):
     
     await message.reply_text(
         f"👋 **𝗛𝗘𝗟𝗟𝗢 @{message.from_user.username} !!**\n\n"
-        f"**𝗪𝗘𝗟𝗖𝗢𝗠𝗘 𝗧𝗢 𝗔𝗔𝗩𝗬𝗔 𝗕𝗬𝗣𝗔𝗦𝗦 𝗕𝗢𝗧 !**\n\n"
-        f"**𝗝𝗨𝗦𝗧 𝗦𝗘𝗡𝗗 𝗧𝗛𝗘 𝗟𝗜𝗡𝗞 𝗕𝗘𝗟𝗢𝗪 𝗧𝗢 𝗕𝗬𝗣𝗔𝗦𝗦!**",
+        f"**𝗪𝗘𝗟𝗖𝗢𝗠𝗘 𝗧𝗢 𝗙𝗥𝗘𝗘 𝗕𝗬𝗣𝗔𝗦𝗦 𝗕𝗢𝗧 !**\n\n"
+        f"**𝗝𝗨𝗦𝗧 𝗦𝗘𝗡𝗗 𝗧𝗛𝗘 𝗟𝗜𝗡𝗞🔗𝗕𝗘𝗟𝗢𝗪 𝗧𝗢 𝗕𝗬𝗣𝗔𝗦𝗦!**",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("➕𝗔𝗗𝗗 𝗠𝗘 𝗧𝗢 𝗚𝗥𝗢𝗨𝗣➕", url=f"http://t.me/{app.me.username}?startgroup=true")],
-            [InlineKeyboardButton("🚀𝗕𝗨𝗬 𝗔𝗣𝗜", url="https://t.me/cyb3rB4nn3r")]
+            [InlineKeyboardButton("𝗕𝗨𝗬 𝗔𝗣𝗜🚀", url="https://t.me/cyb3rB4nn3r")]
         ])
     )
 
@@ -108,6 +108,7 @@ async def handle_bypass(client, message):
     if not await is_subscribed(client, message): return
 
     start_time = time.time()
+    # Initial Reaction
     try: await client.send_reaction(message.chat.id, message.id, "👀")
     except: pass
 
@@ -133,6 +134,7 @@ async def handle_bypass(client, message):
                 f"👩‍💻 **𝗠𝗔𝗜𝗡𝗧𝗔𝗜𝗡𝗘𝗗 𝗕𝗬: @aavyaxbots ✅**"
             )
             
+            # Success Reaction
             try: await client.send_reaction(message.chat.id, message.id, "🔥")
             except: pass
             
