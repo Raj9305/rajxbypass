@@ -7,7 +7,7 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.errors import UserNotParticipant, FloodWait
 from pymongo import MongoClient
 
-# --- 𝗖𝗢𝗡𝗙𝗜𝗚 (𝗥𝗘𝗡𝗗𝗘𝗥 𝗩𝗔𝗥𝗜𝗔𝗕𝗟𝗘𝗦) ---
+# --- 𝗖𝗢𝗡𝗙𝗜𝗚 ---
 API_ID = int(os.environ.get("API_ID", 0))
 API_HASH = os.environ.get("API_HASH", "")
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
@@ -26,7 +26,7 @@ chats_col = db['chats']
 
 server = Flask(__name__)
 @server.route('/')
-def status(): return '𝗨𝗟𝗧𝗥𝗔 𝗦𝗘𝗖𝗨𝗥𝗘 𝗕𝗢𝗧 𝗢𝗡𝗟𝗜𝗡𝗘'
+def status(): return '𝗕𝗢𝗧 𝗜𝗦 𝗥𝗨𝗡𝗡𝗜𝗡𝗚'
 
 app = Client("BypassBot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
@@ -59,7 +59,7 @@ async def auto_save_group(client, message):
     if any(m.id == (await client.get_me()).id for m in message.new_chat_members):
         add_serve(message.chat.id, is_group=True)
 
-# --- 𝗔𝗗𝗠𝗜𝗡 𝗖𝗢𝗠𝗠𝗔𝗡𝗗𝗦 ---
+# --- 𝗢𝗪𝗡𝗘𝗥 𝗢𝗡𝗟𝗬 𝗙𝗘𝗔𝗧𝗨𝗥𝗘𝗦 ---
 @app.on_message(filters.command("stats") & filters.user(ADMIN_ID))
 async def stats(client, message):
     u_count = users_col.count_documents({})
@@ -71,7 +71,6 @@ async def broadcast(client, message):
     msg = message.reply_to_message
     status = await message.reply_text("🚀 **𝗕𝗥𝗢𝗔𝗗𝗖𝗔𝗦𝗧 𝗦𝗧𝗔𝗥𝗧𝗘𝗗...**")
     done = 0
-    # Broadcast to Users & Groups
     for collection, key in [(users_col, 'user_id'), (chats_col, 'chat_id')]:
         for entry in collection.find({}):
             try:
@@ -82,34 +81,30 @@ async def broadcast(client, message):
                 await msg.copy(chat_id=entry[key])
                 done += 1
             except: pass
-    await status.edit(f"📢 **𝗕𝗥𝗢𝗔𝗗𝗖𝗔𝗦𝗧 𝗗𝗢𝗡𝗘! 𝗧𝗢𝗧𝗔𝗟 𝗥𝗘𝗖𝗜𝗣𝗜𝗘𝗡𝗧𝗦: {done}**")
+    await status.edit(f"📢 **𝗕𝗥𝗢𝗔𝗗𝗖𝗔𝗦𝗧 𝗗𝗢𝗡𝗘! 𝗧𝗢𝗧𝗔𝗟: {done}**")
 
-# --- 𝗠𝗔𝗜𝗡 𝗟𝗢𝗚𝗜𝗖 (𝗢𝗪𝗡𝗘𝗥 𝗢𝗡𝗟𝗬) ---
+# --- 𝗣𝗨𝗕𝗟𝗜𝗖 𝗙𝗘𝗔𝗧𝗨𝗥𝗘𝗦 ---
 @app.on_message(filters.command("start") & filters.private)
 async def start(client, message):
-    if message.from_user.id != ADMIN_ID:
-        return await message.reply_text("❌ **𝗦𝗢𝗥𝗥𝗬! 𝗢𝗡𝗟𝗬 𝗧𝗛𝗘 𝗢𝗪𝗡𝗘𝗥 𝗖𝗔𝗡 𝗨𝗦𝗘 𝗧𝗛𝗜𝗦 𝗕𝗢𝗧.**")
-    
     add_serve(message.from_user.id)
     if not await is_subscribed(client, message): return
     
     await message.reply_text(
         f"👋 **𝗛𝗘𝗟𝗟𝗢 @{message.from_user.username} !!**\n\n"
-        f"**𝗪𝗘𝗟𝗖𝗢𝗠𝗘 𝗢𝗪𝗡𝗘𝗥! 𝗬𝗢𝗨𝗥 𝗕𝗢𝗧 𝗜𝗦 𝗥𝗘𝗔𝗗𝗬.**\n\n"
-        f"**𝗝𝗨𝗦𝗧 𝗦𝗘𝗡𝗗 𝗧𝗛𝗘 𝗟𝗜𝗡𝗞 𝗕𝗘𝗟𝗢𝗪!**",
+        f"**𝗪𝗘𝗟𝗖𝗢𝗠𝗘 𝗧𝗢 𝗔𝗔𝗩𝗬𝗔 𝗕𝗬𝗣𝗔𝗦𝗦 𝗕𝗢𝗧 !**\n\n"
+        f"**𝗝𝗨𝗦𝗧 𝗦𝗘𝗡𝗗 𝗧𝗛𝗘 𝗟𝗜𝗡𝗞 𝗕𝗘𝗟𝗢𝗪 𝗧𝗢 𝗕𝗬𝗣𝗔𝗦𝗦!**",
         reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("➕ **𝗔𝗗𝗗 𝗠𝗘 𝗧𝗢 𝗚𝗥𝗢𝗨𝗣** ➕", url=f"http://t.me/{app.me.username}?startgroup=true")],
-            [InlineKeyboardButton("💰 **𝗣𝗔𝗜𝗗 𝗔𝗣𝗜** 💰", url="https://t.me/cyb3rB4nn3r")]
+            [InlineKeyboardButton("➕𝗔𝗗𝗗 𝗠𝗘 𝗧𝗢 𝗚𝗥𝗢𝗨𝗣➕", url=f"http://t.me/{app.me.username}?startgroup=true")],
+            [InlineKeyboardButton("🚀𝗕𝗨𝗬 𝗔𝗣𝗜", url="https://t.me/cyb3rB4nn3r")]
         ])
     )
 
 @app.on_message(filters.text & filters.private)
 async def handle_bypass(client, message):
-    if message.from_user.id != ADMIN_ID:
-        return await message.reply_text("❌ **𝗔𝗖𝗖𝗘𝗦𝗦 𝗗𝗘𝗡𝗜𝗘𝗗!**")
-
     user_link = message.text.strip()
     if not user_link.startswith("http"): return
+
+    add_serve(message.from_user.id)
     if not await is_subscribed(client, message): return
 
     start_time = time.time()
