@@ -12,25 +12,25 @@ API_HASH = os.environ.get("API_HASH", "")
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 BYPASS_API_KEY = "SH4DAW-D4DY" 
 FORCE_SUB_LINK = "https://t.me/+T-IiOXWR6dFiZDA9"
-# Note: Force sub ke liye invite link ki jagah channel ID ya username (-100xxx) lagta hai.
+# Render variables mein FSUB_ID (e.g. -100xxx) zaroor daalna
 FSUB_ID = os.environ.get("FSUB_ID", "") 
 
 server = Flask(__name__)
 
 @server.route('/')
 def status():
-    return 'Bot is Running with Force Join!'
+    return 'Bot is Online with Premium Features!'
 
 app = Client("BypassBot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
-# Fancy text format function
+# Fancy text format function with Quote (Blockquote)
 def get_fancy_text(original, bypassed, time_taken, user_fname):
     return (
         f"**⚡ AAVYA BYPASS BOT ⚡**\n\n"
         f"🙋‍♂️ **Requested by:** {user_fname}\n"
         f"━━━━━━━━━━━━━━━\n\n"
-        f"🔗 **Original:**\n`{original}`\n\n"
-        f"🚀 **Bypassed:**\n`{bypassed}`\n\n"
+        f"🔗 **Original:**\n> {original}\n\n" # Blockquote used
+        f"🚀 **Bypassed:**\n> {bypassed}\n\n" # Blockquote used
         f"━━━━━━━━━━━━━━━\n"
         f"⏱️ **Time Taken:** `{time_taken:.2f}s`\n"
         f"👩‍💻 **Dev:** @aavyaxbots ✅"
@@ -38,29 +38,50 @@ def get_fancy_text(original, bypassed, time_taken, user_fname):
 
 @app.on_message(filters.command("start"))
 async def start(client, message):
+    # Check if user is already joined (Automatic detection)
+    is_joined = True
+    if FSUB_ID:
+        try:
+            await client.get_chat_member(FSUB_ID, message.from_user.id)
+        except UserNotParticipant:
+            is_joined = False
+        except:
+            pass
+
+    if not is_joined:
+        return await message.reply_text(
+            f"**Namaste {message.from_user.first_name}!**\n\n"
+            "Aapne abhi tak hamara Updates Channel join nahi kiya hai. "
+            "Bot use karne ke liye join karna zaroori hai!",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("📢 Join Updates Channel", url=FORCE_SUB_LINK)
+            ]])
+        )
+
     await message.reply_text(
-        f"**Welcome {message.from_user.first_name}!**\n\n"
+        f"**Welcome {message.from_user.first_name}!!** 🍱\n\n"
         "Main ek fast Link Bypass bot hoon. Bas link bhejo aur magic dekho! ✨",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("➕ Add Me To Group", url=f"http://t.me/{app.me.username}?startgroup=true")],
+            [InlineKeyboardButton("💰 PAID API", url="https://t.me/cyb3rB4nn3r")],
             [InlineKeyboardButton("📢 Updates Channel", url=FORCE_SUB_LINK)]
         ])
     )
 
 @app.on_message(filters.text & filters.private)
 async def handle_bypass(client, message):
-    # Sirf Links detect karega
     user_link = message.text.strip()
+    # Sirf links detect karega
     if not user_link.startswith("http"):
         return
 
-    # --- FORCE JOIN CHECK ---
+    # --- FORCE JOIN CHECK (TIGHT) ---
     if FSUB_ID:
         try:
             await client.get_chat_member(FSUB_ID, message.from_user.id)
         except UserNotParticipant:
             return await message.reply_text(
-                "**❌ Access Denied!**\n\nBot use karne ke liye aapko hamare channel ko join karna hoga.",
+                "**❌ Access Denied!**\n\nAapne channel join nahi kiya hai. Pehle join karein fir link bhein.",
                 reply_markup=InlineKeyboardMarkup([[
                     InlineKeyboardButton("Join Channel 📢", url=FORCE_SUB_LINK)
                 ]])
@@ -68,7 +89,6 @@ async def handle_bypass(client, message):
         except Exception:
             pass
 
-    # Timer aur Reaction
     start_time = time.time()
     user_fname = message.from_user.first_name
 
@@ -97,6 +117,7 @@ async def handle_bypass(client, message):
                 disable_web_page_preview=True,
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("➕ Add Me To Group", url=f"http://t.me/{app.me.username}?startgroup=true")],
+                    [InlineKeyboardButton("💰 PAID API", url="https://t.me/cyb3rB4nn3r")],
                     [InlineKeyboardButton("Dev ✅", url="https://t.me/aavyaxbots")]
                 ])
             )
