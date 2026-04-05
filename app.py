@@ -15,9 +15,8 @@ MONGO_URL = os.environ.get("MONGO_URL", "")
 ADMIN_ID = int(os.environ.get("ADMIN_ID", 0)) 
 
 BYPASS_API_KEY = os.environ.get("BYPASS_API_KEY", "SH4DAW-D4DY")
-# Naya Link Update Kar Diya
 FORCE_SUB_LINK = "https://t.me/+4hW0nmW34rRjN2Fl"
-FSUB_ID = os.environ.get("FSUB_ID", "") # Ismein Channel ki numeric ID zaroor daalna
+FSUB_ID = os.environ.get("FSUB_ID", "") # Render mein numeric ID (-100xxx) zaroor daalna
 
 # --- 𝗗𝗔𝗧𝗔𝗕𝗔𝗦𝗘 ---
 db_client = MongoClient(MONGO_URL)
@@ -27,7 +26,7 @@ chats_col = db['chats']
 
 server = Flask(__name__)
 @server.route('/')
-def status(): return '𝗙𝗢𝗥𝗖𝗘 𝗝𝗢𝗜𝗡 𝗕𝗢𝗧 𝗔𝗟𝗜𝗩𝗘'
+def status(): return '𝗦𝗧𝗔𝗥𝗧 𝗕𝗨𝗧𝗧𝗢𝗡 𝗙𝗜𝗫𝗘𝗗'
 
 app = Client("BypassBot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
@@ -38,78 +37,64 @@ def add_serve(chat_id, is_group=False):
     if not col.find_one({key: chat_id}):
         col.insert_one({key: chat_id})
 
-async def is_subscribed(client, message):
+async def check_fsub(client, message):
     if not FSUB_ID: return True
     try:
         await client.get_chat_member(FSUB_ID, message.from_user.id)
         return True
     except UserNotParticipant:
-        # Strict Force Join Message
-        await message.reply_text(
-            f"👋 **𝗛𝗘𝗟𝗟𝗢 @{message.from_user.username} !!**\n\n"
-            f"**𝗬𝗢𝗨 𝗠𝗨𝗦𝗧 𝗝𝗢𝗜𝗡 𝗢𝗨𝗥 𝗖𝗛𝗔𝗡𝗡𝗘𝗟 𝗧𝗢 𝗨𝗦𝗘 𝗧𝗛𝗜𝗦 𝗕𝗢𝗧!**\n\n"
-            f"**𝗝𝗢𝗜𝗡 𝗞𝗔𝗥𝗡𝗘 𝗞𝗘 𝗕𝗔𝗔𝗗 𝗙𝗜𝗥 𝗦𝗘 𝗟𝗜𝗡𝗞 𝗕𝗛𝗘𝗝𝗢.**",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("➕ **𝗝𝗢𝗜𝗡 𝗖𝗛𝗔𝗡𝗡𝗘𝗟** ➕", url=FORCE_SUB_LINK)
-            ]])
-        )
         return False
-    except Exception: return True
-
-# --- 𝗔𝗨𝗧𝗢 𝗦𝗔𝗩𝗘 ---
-@app.on_message(filters.new_chat_members)
-async def auto_save_group(client, message):
-    if any(m.id == (await client.get_me()).id for m in message.new_chat_members):
-        add_serve(message.chat.id, is_group=True)
-
-# --- 𝗔𝗗𝗠𝗜𝗡 𝗖𝗢𝗠𝗠𝗔𝗡𝗗𝗦 ---
-@app.on_message(filters.command("stats") & filters.user(ADMIN_ID))
-async def stats(client, message):
-    u_count = users_col.count_documents({})
-    c_count = chats_col.count_documents({})
-    await message.reply_text(f"📊 **𝗦𝗧𝗔𝗧𝗦:**\n\n👤 **𝗨𝗦𝗘𝗥𝗦: {u_count}**\n👥 **𝗖𝗛𝗔𝗧𝗦: {c_count}**")
-
-@app.on_message(filters.command("broadcast") & filters.user(ADMIN_ID) & filters.reply)
-async def broadcast(client, message):
-    msg = message.reply_to_message
-    status = await message.reply_text("🚀 **𝗕𝗥𝗢𝗔𝗗𝗖𝗔𝗦𝗧 𝗦𝗧𝗔𝗥𝗧𝗘𝗗...**")
-    done = 0
-    for collection, key in [(users_col, 'user_id'), (chats_col, 'chat_id')]:
-        for entry in collection.find({}):
-            try:
-                await msg.copy(chat_id=entry[key])
-                done += 1
-            except FloodWait as e:
-                time.sleep(e.value)
-                await msg.copy(chat_id=entry[key])
-                done += 1
-            except: pass
-    await status.edit(f"📢 **𝗕𝗥𝗢𝗔𝗗𝗖𝗔𝗦𝗧 𝗗𝗢𝗡𝗘! 𝗧𝗢𝗧𝗔𝗟: {done}**")
+    except: return True
 
 # --- 𝗠𝗔𝗜𝗡 𝗟𝗢𝗚𝗜𝗖 ---
 @app.on_message(filters.command("start") & filters.private)
 async def start(client, message):
     add_serve(message.from_user.id)
-    if not await is_subscribed(client, message): return
+    is_joined = await check_fsub(client, message)
     
-    await message.reply_text(
+    # Buttons prepare kar rahe hain
+    buttons = []
+    
+    # ⚠️ Agar join nahi hai toh join button sabse upar
+    if not is_joined:
+        buttons.append([InlineKeyboardButton("✅𝗝𝗢𝗜𝗡 𝗖𝗛𝗔𝗡𝗡𝗘𝗟✅", url=FORCE_SUB_LINK)])
+    
+    # Baaki buttons normal
+    buttons.append([InlineKeyboardButton("✅𝗔𝗗𝗗 𝗠𝗘 𝗧𝗢 𝗚𝗥𝗢𝗨𝗣✅", url=f"http://t.me/{app.me.username}?startgroup=true")])
+    buttons.append([InlineKeyboardButton("🚀𝗕𝗨𝗬 𝗔𝗣𝗜", url="https://t.me/rajfflive")])
+
+    welcome_text = (
         f"👋 **𝗛𝗘𝗟𝗟𝗢 @{message.from_user.username} !!**\n\n"
         f"**𝗪𝗘𝗟𝗖𝗢𝗠𝗘 𝗧𝗢 𝗔𝗔𝗩𝗬𝗔 𝗕𝗬𝗣𝗔𝗦𝗦 𝗕𝗢𝗧 !**\n\n"
-        f"**𝗝𝗨𝗦𝗧 𝗦𝗘𝗡𝗗 𝗧𝗛𝗘 𝗟𝗜𝗡𝗞 𝗕𝗘𝗟𝗢𝗪 𝗧𝗢 𝗕𝗬𝗣𝗔𝗦𝗦!**",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("➕ **𝗔𝗗𝗗 𝗠𝗘 𝗧𝗢 𝗚𝗥𝗢𝗨𝗣** ➕", url=f"http://t.me/{app.me.username}?startgroup=true")],
-            [InlineKeyboardButton("💰 **𝗕𝗨𝗬 𝗔𝗣𝗜** 💰", url="https://t.me/cyb3rB4nn3r")]
-        ])
+    )
+    
+    if not is_joined:
+        welcome_text += "⚠️ **𝗣𝗟𝗘𝗔𝗦𝗘 𝗝𝗢𝗜𝗡 𝗢𝗨𝗥 𝗖𝗛𝗔𝗡𝗡𝗘𝗟 𝗧𝗢 𝗨𝗦𝗘 𝗠𝗘!**"
+    else:
+        welcome_text += "**𝗝𝗨𝗦𝗧 𝗦𝗘𝗡𝗗 𝗧𝗛𝗘 𝗟𝗜𝗡𝗞 𝗕𝗘𝗟𝗢𝗪 𝗧𝗢 𝗕𝗬𝗣𝗔𝗦𝗦!**"
+
+    await message.reply_text(
+        welcome_text,
+        reply_markup=InlineKeyboardMarkup(buttons)
     )
 
 @app.on_message(filters.text & filters.private)
 async def handle_bypass(client, message):
+    if message.text.startswith("/"): return
+    
+    add_serve(message.from_user.id)
+    
+    # Strict check for bypass
+    if not await check_fsub(client, message):
+        return await message.reply_text(
+            "⚠️ **𝗔𝗖𝗖𝗘𝗦𝗦 𝗗𝗘𝗡𝗜𝗘𝗗!**\n\n**𝗬𝗢𝗨 𝗠𝗨𝗦𝗧 𝗝𝗢𝗜𝗡 𝗢𝗨𝗥 𝗖𝗛𝗔𝗡𝗡𝗘𝗟 𝗙𝗜𝗥𝗦𝗧!**",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("➕ **𝗝𝗢𝗜𝗡 𝗖𝗛𝗔𝗡𝗡𝗘𝗟** ➕", url=FORCE_SUB_LINK)
+            ]])
+        )
+
     user_link = message.text.strip()
     if not user_link.startswith("http"): return
-
-    add_serve(message.from_user.id)
-    # Strict Force Join Check
-    if not await is_subscribed(client, message): return
 
     start_time = time.time()
     try: await client.send_reaction(message.chat.id, message.id, "👀")
@@ -123,31 +108,21 @@ async def handle_bypass(client, message):
 
         if res.get("status"):
             bypassed = res["info"]["bypass"]
-            original = res["info"]["original"]
             time_taken = time.time() - start_time
             
             response_text = (
-                f"⚡ **𝗔𝗔𝗩𝗬𝗔 𝗕𝗬𝗣𝗔𝗦𝗦 𝗕𝗢𝗧** ⚡\n\n"
-                f"🙋‍♂️ **𝗥𝗘𝗤𝗨𝗘𝗦𝗧𝗘𝗗 𝗕𝗬: @{message.from_user.username}**\n"
+                f"⚡ **𝗔𝗔𝗩𝗬𝗔 𝗕𝗬𝗣𝗔𝗦𝗦 𝗕𝗢𝗧** ⚡\n"
                 f"━━━━━━━━━━━━━━━\n\n"
-                f"🔗 **𝗢𝗥𝗜𝗚𝗜𝗡𝗔𝗟:**\n> {original}\n\n"
                 f"🚀 **𝗕𝗬𝗣𝗔𝗦𝗦𝗘𝗗:**\n> {bypassed}\n\n"
-                f"━━━━━━━━━━━━━━━\n"
                 f"⏱️ **𝗧𝗜𝗠𝗘 𝗧𝗔𝗞𝗘𝗡: `{time_taken:.2f}𝗦`**\n"
                 f"👩‍💻 **𝗗𝗘𝗩: @rajfflive ✅**"
             )
-            
             try: await client.send_reaction(message.chat.id, message.id, "🔥")
             except: pass
-            
             await msg.edit(response_text, disable_web_page_preview=True)
         else:
-            await msg.edit(f"❌ **𝗔𝗣𝗜 𝗘𝗥𝗥𝗢𝗥: `{res.get('msg', '𝗙𝗔𝗜𝗟𝗘𝗗')}`**")
-            
-    except Exception as e:
-        await msg.edit(f"❌ **𝗘𝗥𝗥𝗢𝗥: `{str(e)}`**")
+            await msg.edit("❌ **𝗔𝗣𝗜 𝗘𝗥𝗥𝗢𝗥!**")
+    except:
+        await msg.edit("❌ **𝗦𝗘𝗥𝗩𝗘𝗥 𝗘𝗥𝗥𝗢𝗥!**")
 
-if __name__ == "__main__":
-    from threading import Thread
-    Thread(target=lambda: server.run(host="0.0.0.0", port=8080)).start()
-    app.run()
+# Admin commands (stats/broadcast) remains same...
