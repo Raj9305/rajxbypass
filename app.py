@@ -16,8 +16,8 @@ ADMIN_ID = int(os.environ.get("ADMIN_ID", "123456789"))   # Your Telegram user I
 BYPASS_API_KEY = os.environ.get("BYPASS_API_KEY", "SH4DAW-D4DY")
 
 # ========== FORCE SUBSCRIBE - EDIT THESE TWO LINES ==========
-FSUB_ID = -1001234567890        # <--- REPLACE with your channel ID (with -100)
-FORCE_SUB_LINK = "https://t.me/your_channel"  # <--- REPLACE with your invite link
+FSUB_ID = -1003898508261       # <--- REPLACE with your channel ID (with -100)
+FORCE_SUB_LINK = "https://t.me/+HpoHOHMq0VpiYWVl"  # <--- REPLACE with your invite link
 # ==============================================================
 
 # ==================== DATABASE SETUP ====================
