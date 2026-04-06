@@ -50,9 +50,8 @@ def ban_user(user_id):
 def unban_user(user_id):
     banned_col.delete_one({"user_id": user_id})
 
-# ==================== START COMMAND (PRIVATE) ====================
-@app.on_message(filters.command("start") & filters.private)
-async def start_private(client, message):
+# ==================== WELCOME MESSAGE FUNCTION ====================
+async def send_welcome(client, message, is_group=False):
     user_id = message.from_user.id
     add_user(user_id, message.from_user.first_name, message.from_user.username)
 
@@ -66,25 +65,29 @@ async def start_private(client, message):
         f"💡 **Send me any short link** – I'll give you the direct download link.\n\n"
         f"🔗 **Join our channel for updates:**"
     )
-    buttons = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📢 JOIN CHANNEL", url=CHANNEL_LINK)],
-        [InlineKeyboardButton("➕ ADD TO GROUP", url=f"http://t.me/{app.me.username}?startgroup=true")],
-        [InlineKeyboardButton("ℹ️ HELP", callback_data="help"), 
-         InlineKeyboardButton("📊 STATS", callback_data="stats")]
-    ])
+    
+    if is_group:
+        buttons = InlineKeyboardMarkup([
+            [InlineKeyboardButton("📢 JOIN CHANNEL", url=CHANNEL_LINK)],
+            [InlineKeyboardButton("ℹ️ HELP", callback_data="help")]
+        ])
+    else:
+        buttons = InlineKeyboardMarkup([
+            [InlineKeyboardButton("📢 JOIN CHANNEL", url=CHANNEL_LINK)],
+            [InlineKeyboardButton("➕ ADD TO GROUP", url=f"http://t.me/{app.me.username}?startgroup=true")],
+            [InlineKeyboardButton("ℹ️ HELP", callback_data="help"), 
+             InlineKeyboardButton("📊 STATS", callback_data="stats")]
+        ])
+    
     await message.reply_text(welcome_text, reply_markup=buttons, quote=True)
 
-# ==================== START COMMAND (GROUP) ====================
-@app.on_message(filters.command("start") & filters.group)
-async def start_group(client, message):
-    # Just reply with a short message, quoting the user
-    await message.reply_text(
-        "👋 **Hello!** I'm a link bypass bot.\n"
-        "Send me any shortlink (e.g., `exe.io`, `indianshortner.in`) and I'll give you the direct link.\n\n"
-        "Use `/help` for more info.\n"
-        "👩‍💻 **Dev:** @ffofcchat",
-        quote=True
-    )
+# ==================== START COMMAND (PRIVATE & GROUP) ====================
+@app.on_message(filters.command("start"))
+async def start_cmd(client, message):
+    if message.chat.type == "private":
+        await send_welcome(client, message, is_group=False)
+    else:
+        await send_welcome(client, message, is_group=True)
 
 # ==================== HELP CALLBACK ====================
 @app.on_callback_query()
@@ -213,8 +216,8 @@ async def leave_cmd(client, message):
         await message.reply_text(f"❌ **Failed:** `{e}`", quote=True)
 
 # ==================== HELP COMMAND (DIRECT) ====================
-@app.on_message(filters.command("help") & filters.private)
-async def help_private(client, message):
+@app.on_message(filters.command("help"))
+async def help_cmd(client, message):
     if is_banned(message.from_user.id):
         return await message.reply_text("🚫 **You are banned.**", quote=True)
     help_text = (
@@ -237,47 +240,25 @@ async def help_private(client, message):
     )
     await message.reply_text(help_text, quote=True)
 
-@app.on_message(filters.command("help") & filters.group)
-async def help_group(client, message):
-    help_text = (
-        "🔍 **How to use me**\n\n"
-        "Send any shortlink – I'll give the direct link.\n"
-        "Supported: `earnlinks`, `vplink`, `gplinks`, `indianshortner`, `exe.io`, etc.\n\n"
-        "👩‍💻 **Dev:** @ffofcchat"
-    )
-    await message.reply_text(help_text, quote=True)
-
-# ==================== BYPASS LOGIC (PRIVATE) ====================
-@app.on_message(filters.text & ~filters.command(["start", "help", "stats", "users", "groups", "broadcast", "ban", "unban", "leave"]) & filters.private)
-async def bypass_private(client, message):
-    user_id = message.from_user.id
-    if is_banned(user_id):
-        return await message.reply_text("🚫 **You are banned.**", quote=True)
-
+# ==================== BYPASS LOGIC (PRIVATE & GROUP) ====================
+@app.on_message(filters.text & ~filters.command(["start", "help", "stats", "users", "groups", "broadcast", "ban", "unban", "leave"]))
+async def bypass_handler(client, message):
+    # Ignore if not a link
     link = message.text.strip()
     if "http" not in link:
-        return
-
-    await process_bypass(client, message, link)
-
-# ==================== BYPASS LOGIC (GROUPS) ====================
-@app.on_message(filters.text & filters.group)
-async def bypass_group(client, message):
-    # Ignore commands
-    if message.text.startswith('/'):
         return
 
     user_id = message.from_user.id
     chat_id = message.chat.id
 
-    add_group(chat_id, message.chat.title)
+    # Save user/group
+    if message.chat.type == "private":
+        add_user(user_id, message.from_user.first_name, message.from_user.username)
+    else:
+        add_group(chat_id, message.chat.title)
 
     if is_banned(user_id):
         return await message.reply_text("🚫 **You are banned from using this bot.**", quote=True)
-
-    link = message.text.strip()
-    if "http" not in link:
-        return
 
     await process_bypass(client, message, link)
 
@@ -310,7 +291,7 @@ async def process_bypass(client, message, link):
                 f"⏱️ **Time:** `{time_taken:.2f}s`\n"
                 f"👤 **User:** @{message.from_user.username or 'User'}\n"
                 f"🤖 **Bot:** @{app.me.username}\n"
-                f"👩‍💻 **Dev:** @ffofcchat"
+                f"🚀 **Dev:** @ffofcchat"
             )
             # Send success reaction
             try:
