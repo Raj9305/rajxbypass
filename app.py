@@ -60,7 +60,7 @@ async def start_cmd(client, message):
         return await message.reply_text("🚫 **You are banned from using this bot.**", quote=True)
 
     welcome_text = (
-        f"✨ **Hello {message.from_user.first_name}!** ✨\n\n"
+        f"🎉 **Hello {message.from_user.first_name}!** 🎉\n\n"
         f"🤖 **Aavya Bypass Bot** is online.\n"
         f"📂 **Service:** Link Bypasser (supports most shortlinks)\n\n"
         f"💡 **Send me any short link** – I'll give you the direct download link.\n\n"
@@ -69,7 +69,8 @@ async def start_cmd(client, message):
     buttons = InlineKeyboardMarkup([
         [InlineKeyboardButton("📢 JOIN CHANNEL", url=CHANNEL_LINK)],
         [InlineKeyboardButton("➕ ADD TO GROUP", url=f"http://t.me/{app.me.username}?startgroup=true")],
-        [InlineKeyboardButton("ℹ️ HELP", callback_data="help"), InlineKeyboardButton("📊 STATS", callback_data="stats")]
+        [InlineKeyboardButton("ℹ️ HELP", callback_data="help"), 
+         InlineKeyboardButton("📊 STATS", callback_data="stats")]
     ])
     await message.reply_text(welcome_text, reply_markup=buttons, quote=True)
 
@@ -81,17 +82,25 @@ async def callback_handler(client, callback_query):
 
     if data == "help":
         await callback_query.answer("📖 Opening help...")
-        await callback_query.message.reply_text(
+        help_text = (
             "🔍 **How to use me**\n\n"
-            "1️⃣ Send me any shortlink (e.g., `exe.io`, `shortingly.com`)\n"
-            "2️⃣ I will process it and give you the **direct link**.\n"
+            "1️⃣ Send me any shortlink.\n"
+            "2️⃣ I will bypass it and give you the **direct link**.\n"
             "3️⃣ Add me to your group – I will work there too.\n\n"
+            "**Supported shortlink types (examples):**\n"
+            "• `earnlinks.com`\n"
+            "• `vplink.com`\n"
+            "• `gplinks.com`\n"
+            "• `indianshortner.in`\n"
+            "• `exe.io`\n"
+            "• `shortingly.com`\n"
+            "• Many more...\n\n"
             "**Commands:**\n"
             "/start – Main menu\n"
             "/help – This message\n\n"
-            "👩‍💻 **Developer:** @ffofcchat",
-            quote=True
+            "👩‍💻 **Developer:** @ffofcchat"
         )
+        await callback_query.message.reply_text(help_text, quote=True)
 
     elif data == "stats":
         if user_id == ADMIN_ID:
@@ -191,6 +200,31 @@ async def leave_cmd(client, message):
     except Exception as e:
         await message.reply_text(f"❌ **Failed:** `{e}`", quote=True)
 
+# ==================== HELP COMMAND (DIRECT) ====================
+@app.on_message(filters.command("help") & filters.private)
+async def help_cmd(client, message):
+    if is_banned(message.from_user.id):
+        return await message.reply_text("🚫 **You are banned.**", quote=True)
+    help_text = (
+        "🔍 **How to use me**\n\n"
+        "1️⃣ Send me any shortlink.\n"
+        "2️⃣ I will bypass it and give you the **direct link**.\n"
+        "3️⃣ Add me to your group – I will work there too.\n\n"
+        "**Supported shortlink types (examples):**\n"
+        "• `earnlinks.com`\n"
+        "• `vplink.com`\n"
+        "• `gplinks.com`\n"
+        "• `indianshortner.in`\n"
+        "• `exe.io`\n"
+        "• `shortingly.com`\n"
+        "• Many more...\n\n"
+        "**Commands:**\n"
+        "/start – Main menu\n"
+        "/help – This message\n\n"
+        "👩‍💻 **Developer:** @ffofcchat"
+    )
+    await message.reply_text(help_text, quote=True)
+
 # ==================== BYPASS LOGIC (PRIVATE) ====================
 @app.on_message(filters.text & ~filters.command(["start", "help", "stats", "users", "groups", "broadcast", "ban", "unban", "leave"]) & filters.private)
 async def bypass_private(client, message):
@@ -244,7 +278,7 @@ async def process_bypass(client, message, link):
                 f"✅ **Successfully Bypassed!**\n"
                 f"━━━━━━━━━━━━━━━━━━━━━\n\n"
                 f"🔗 **Original Link:**\n{original}\n\n"
-                f"🚀 **Bypassed Link:**\n{bypassed}\n\n"
+                f"🟢 **Bypassed Link:**\n{bypassed}\n\n"
                 f"━━━━━━━━━━━━━━━━━━━━━\n"
                 f"⏱️ **Time:** `{time_taken:.2f}s`\n"
                 f"👤 **User:** @{message.from_user.username or 'User'}\n"
