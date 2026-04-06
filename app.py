@@ -4,21 +4,19 @@ import time
 from flask import Flask
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from pyrogram.errors import UserNotParticipant, ChatAdminRequired
 from pymongo import MongoClient
 
-# ==================== YOUR SETTINGS (EDIT THESE) ====================
+# ==================== CONFIGURATION ====================
 API_ID = int(os.environ.get("API_ID", "123456"))
 API_HASH = os.environ.get("API_HASH", "your_api_hash")
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "your_bot_token")
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
-ADMIN_ID = int(os.environ.get("ADMIN_ID", "123456789"))   # Your Telegram user ID
+ADMIN_ID = int(os.environ.get("ADMIN_ID", "123456789"))
 BYPASS_API_KEY = os.environ.get("BYPASS_API_KEY", "SH4DAW-D4DY")
 
-# ========== FORCE SUBSCRIBE (UPDATE WITH CORRECT ID & LINK) ==========
-FSUB_ID = -1003898508261               # <--- UPDATE with ID from @userinfobot
-FORCE_SUB_LINK = "https://t.me/+HpoHOHMq0VpiYWVl"   # Your invite link
-# =====================================================================
+# ========== YOUR CHANNEL BUTTON (NOT FORCE) ==========
+CHANNEL_LINK = "https://t.me/+HpoHOHMq0VpiYWVl"   # Your channel invite link
+# ====================================================
 
 db_client = MongoClient(MONGO_URL)
 db = db_client['BypassBotDB']
@@ -29,10 +27,11 @@ banned_col = db['banned']
 server = Flask(__name__)
 @server.route('/')
 def status():
-    return "Bot alive"
+    return "✅ Bot is alive"
 
 app = Client("BypassBot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
+# ==================== HELPERS ====================
 def add_user(user_id, name="", username=""):
     if not users_col.find_one({"user_id": user_id}):
         users_col.insert_one({"user_id": user_id, "name": name, "username": username})
@@ -44,123 +43,231 @@ def add_group(chat_id, title=""):
 def is_banned(user_id):
     return banned_col.find_one({"user_id": user_id}) is not None
 
-async def is_member(client, user_id):
-    """Check if user is in the channel. Returns True if yes, False otherwise."""
-    try:
-        member = await client.get_chat_member(FSUB_ID, user_id)
-        return member.status in ("member", "administrator", "creator")
-    except UserNotParticipant:
-        return False
-    except ChatAdminRequired:
-        # Bot is not admin – notify the owner
-        await client.send_message(ADMIN_ID, f"⚠️ **BOT IS NOT ADMIN** in the force-sub channel!\nChannel ID: `{FSUB_ID}`\nPlease add bot as admin with 'Get Members' permission.")
-        return False
-    except Exception:
-        return False
+def ban_user(user_id):
+    if not is_banned(user_id):
+        banned_col.insert_one({"user_id": user_id})
 
-async def force_sub_keyboard():
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("📢 JOIN CHANNEL", url=FORCE_SUB_LINK)],
-        [InlineKeyboardButton("🔄 I've Joined", callback_data="check")]
-    ])
+def unban_user(user_id):
+    banned_col.delete_one({"user_id": user_id})
 
-@app.on_callback_query()
-async def callback(client, query):
-    if query.data == "check":
-        if await is_member(client, query.from_user.id):
-            await query.answer("✅ Access granted! You can use the bot.", show_alert=True)
-            await query.message.edit(
-                "✨ **Access Granted!**\nSend me any short link.",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("➕ ADD TO GROUP", url=f"http://t.me/{app.me.username}?startgroup=true")]
-                ])
-            )
-        else:
-            await query.answer("❌ You still haven't joined. Please join first.", show_alert=True)
-
+# ==================== START COMMAND ====================
 @app.on_message(filters.command("start") & filters.private)
-async def start(client, message):
+async def start_cmd(client, message):
     user_id = message.from_user.id
     add_user(user_id, message.from_user.first_name, message.from_user.username)
+
     if is_banned(user_id):
-        return await message.reply_text("🚫 Banned.", quote=True)
-    if not await is_member(client, user_id):
-        await message.reply_text(
-            f"👋 **Hello {message.from_user.first_name}!**\n\n"
-            "⚠️ **You must join our channel to use this bot.**\n"
-            "Click below, join, then press **I've Joined**.",
-            reply_markup=await force_sub_keyboard(),
-            quote=True
-        )
-        return
+        return await message.reply_text("🚫 **You are banned from using this bot.**", quote=True)
+
+    welcome_text = (
+        f"✨ **Hello {message.from_user.first_name}!** ✨\n\n"
+        f"🤖 **Aavya Bypass Bot** is online.\n"
+        f"📂 **Service:** Link Bypasser (supports most shortlinks)\n\n"
+        f"💡 **Send me any short link** – I'll give you the direct download link.\n\n"
+        f"🔗 **Join our channel for updates:**"
+    )
     buttons = InlineKeyboardMarkup([
+        [InlineKeyboardButton("📢 JOIN CHANNEL", url=CHANNEL_LINK)],
         [InlineKeyboardButton("➕ ADD TO GROUP", url=f"http://t.me/{app.me.username}?startgroup=true")],
         [InlineKeyboardButton("ℹ️ HELP", callback_data="help"), InlineKeyboardButton("📊 STATS", callback_data="stats")]
     ])
-    await message.reply_text(
-        f"✨ **Welcome {message.from_user.first_name}!**\nSend me any short link.",
-        reply_markup=buttons,
-        quote=True
-    )
+    await message.reply_text(welcome_text, reply_markup=buttons, quote=True)
 
-@app.on_message(filters.command("help") & filters.private)
-async def help_cmd(client, message):
-    if is_banned(message.from_user.id):
-        return await message.reply_text("🚫 Banned.", quote=True)
-    if not await is_member(client, message.from_user.id):
-        return await message.reply_text("⚠️ Join first.", reply_markup=await force_sub_keyboard(), quote=True)
-    await message.reply_text("Send any shortlink – I will bypass it.", quote=True)
+# ==================== HELP CALLBACK ====================
+@app.on_callback_query()
+async def callback_handler(client, callback_query):
+    data = callback_query.data
+    user_id = callback_query.from_user.id
 
-@app.on_message(filters.text & ~filters.command(["start", "help"]) & filters.private)
+    if data == "help":
+        await callback_query.answer("📖 Opening help...")
+        await callback_query.message.reply_text(
+            "🔍 **How to use me**\n\n"
+            "1️⃣ Send me any shortlink (e.g., `exe.io`, `shortingly.com`)\n"
+            "2️⃣ I will process it and give you the **direct link**.\n"
+            "3️⃣ Add me to your group – I will work there too.\n\n"
+            "**Commands:**\n"
+            "/start – Main menu\n"
+            "/help – This message\n\n"
+            "👩‍💻 **Developer:** @ffofcchat",
+            quote=True
+        )
+
+    elif data == "stats":
+        if user_id == ADMIN_ID:
+            user_count = users_col.count_documents({})
+            group_count = groups_col.count_documents({})
+            banned_count = banned_col.count_documents({})
+            await callback_query.answer("📊 Fetching stats...")
+            await callback_query.message.reply_text(
+                f"📊 **Bot Statistics**\n\n"
+                f"👤 **Users:** `{user_count}`\n"
+                f"👥 **Groups:** `{group_count}`\n"
+                f"🚫 **Banned:** `{banned_count}`",
+                quote=True
+            )
+        else:
+            await callback_query.answer("⛔ Only bot owner can view stats.", show_alert=True)
+
+# ==================== OWNER COMMANDS ====================
+@app.on_message(filters.command("stats") & filters.user(ADMIN_ID))
+async def stats_cmd(client, message):
+    uc = users_col.count_documents({})
+    gc = groups_col.count_documents({})
+    bc = banned_col.count_documents({})
+    await message.reply_text(f"📊 **Stats**\n👤 Users: `{uc}`\n👥 Groups: `{gc}`\n🚫 Banned: `{bc}`", quote=True)
+
+@app.on_message(filters.command("users") & filters.user(ADMIN_ID))
+async def users_cmd(client, message):
+    users = list(users_col.find({}).limit(10))
+    if not users:
+        return await message.reply_text("No users found.", quote=True)
+    text = "📋 **Recent users (first 10):**\n\n"
+    for u in users:
+        text += f"• `{u['user_id']}` – {u.get('name', 'Unknown')}\n"
+    await message.reply_text(text, quote=True)
+
+@app.on_message(filters.command("groups") & filters.user(ADMIN_ID))
+async def groups_cmd(client, message):
+    groups = list(groups_col.find({}).limit(10))
+    if not groups:
+        return await message.reply_text("No groups found.", quote=True)
+    text = "📋 **Recent groups (first 10):**\n\n"
+    for g in groups:
+        text += f"• `{g['chat_id']}` – {g.get('title', 'Unknown')}\n"
+    await message.reply_text(text, quote=True)
+
+@app.on_message(filters.command("broadcast") & filters.user(ADMIN_ID))
+async def broadcast_cmd(client, message):
+    if len(message.command) < 2:
+        return await message.reply_text("Usage: `/broadcast Your message here`", quote=True)
+    broadcast_text = message.text.split(None, 1)[1]
+    users = users_col.find({})
+    success = fail = 0
+    status_msg = await message.reply_text("📢 **Broadcasting...** This may take a while.", quote=True)
+    for user in users:
+        try:
+            await client.send_message(user['user_id'], broadcast_text)
+            success += 1
+            time.sleep(0.05)
+        except:
+            fail += 1
+    await status_msg.edit_text(f"✅ **Broadcast finished.**\nSent: `{success}`\nFailed: `{fail}`")
+
+@app.on_message(filters.command("ban") & filters.user(ADMIN_ID))
+async def ban_cmd(client, message):
+    if len(message.command) != 2:
+        return await message.reply_text("Usage: `/ban user_id`", quote=True)
+    try:
+        uid = int(message.command[1])
+    except:
+        return await message.reply_text("Invalid user ID.", quote=True)
+    ban_user(uid)
+    await message.reply_text(f"✅ **User** `{uid}` **has been banned.**", quote=True)
+
+@app.on_message(filters.command("unban") & filters.user(ADMIN_ID))
+async def unban_cmd(client, message):
+    if len(message.command) != 2:
+        return await message.reply_text("Usage: `/unban user_id`", quote=True)
+    try:
+        uid = int(message.command[1])
+    except:
+        return await message.reply_text("Invalid user ID.", quote=True)
+    unban_user(uid)
+    await message.reply_text(f"✅ **User** `{uid}` **has been unbanned.**", quote=True)
+
+@app.on_message(filters.command("leave") & filters.user(ADMIN_ID))
+async def leave_cmd(client, message):
+    if len(message.command) != 2:
+        return await message.reply_text("Usage: `/leave chat_id`", quote=True)
+    try:
+        cid = int(message.command[1])
+    except:
+        return await message.reply_text("Invalid chat ID.", quote=True)
+    try:
+        await client.leave_chat(cid)
+        groups_col.delete_one({"chat_id": cid})
+        await message.reply_text(f"✅ **Left chat** `{cid}` **and removed from DB.**", quote=True)
+    except Exception as e:
+        await message.reply_text(f"❌ **Failed:** `{e}`", quote=True)
+
+# ==================== BYPASS LOGIC (PRIVATE) ====================
+@app.on_message(filters.text & ~filters.command(["start", "help", "stats", "users", "groups", "broadcast", "ban", "unban", "leave"]) & filters.private)
 async def bypass_private(client, message):
     user_id = message.from_user.id
     if is_banned(user_id):
-        return await message.reply_text("🚫 Banned.", quote=True)
-    if "http" not in message.text:
+        return await message.reply_text("🚫 **You are banned.**", quote=True)
+
+    link = message.text.strip()
+    if "http" not in link:
         return
-    if not await is_member(client, user_id):
-        return await message.reply_text("⚠️ Join channel first.", reply_markup=await force_sub_keyboard(), quote=True)
-    # Process bypass (same as before)
-    msg = await message.reply_text("🔍 Processing...", quote=True)
+
+    await process_bypass(client, message, link)
+
+# ==================== BYPASS LOGIC (GROUPS) ====================
+@app.on_message(filters.text & filters.group)
+async def bypass_group(client, message):
+    user_id = message.from_user.id
+    chat_id = message.chat.id
+
+    add_group(chat_id, message.chat.title)
+
+    if is_banned(user_id):
+        return await message.reply_text("🚫 **You are banned from using this bot.**", quote=True)
+
+    link = message.text.strip()
+    if "http" not in link:
+        return
+
+    await process_bypass(client, message, link)
+
+# ==================== COMMON BYPASS FUNCTION ====================
+async def process_bypass(client, message, link):
+    start_time = time.time()
     try:
-        api = f"https://link-btpass.vercel.app/search?key={BYPASS_API_KEY}&link={message.text}"
-        res = requests.get(api, timeout=30).json()
+        await client.send_reaction(message.chat.id, message.id, "👀")
+    except:
+        pass
+
+    msg = await message.reply_text("🔍 **Processing your link...**", quote=True)
+
+    try:
+        api_url = f"https://link-btpass.vercel.app/search?key={BYPASS_API_KEY}&link={link}"
+        res = requests.get(api_url, timeout=30).json()
+
         if res.get("status"):
             bypassed = res["info"]["bypass"]
             original = res["info"]["original"]
-            await msg.edit(f"✅ **Bypassed!**\n\nOriginal: {original}\nBypassed: {bypassed}", disable_web_page_preview=False)
+            time_taken = time.time() - start_time
+
+            response_text = (
+                f"✅ **Successfully Bypassed!**\n"
+                f"━━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"🔗 **Original Link:**\n{original}\n\n"
+                f"🚀 **Bypassed Link:**\n{bypassed}\n\n"
+                f"━━━━━━━━━━━━━━━━━━━━━\n"
+                f"⏱️ **Time:** `{time_taken:.2f}s`\n"
+                f"👤 **User:** @{message.from_user.username or 'User'}\n"
+                f"🤖 **Bot:** @{app.me.username}\n"
+                f"👩‍💻 **Dev:** @ffofcchat"
+            )
+            try:
+                await client.send_reaction(message.chat.id, message.id, "🔥")
+            except:
+                pass
+            await msg.edit(response_text, disable_web_page_preview=False)
         else:
-            await msg.edit("❌ Bypass failed.")
+            await msg.edit("❌ **Bypass Failed!**\nReason: Link not supported or API error.")
+    except requests.exceptions.Timeout:
+        await msg.edit("⏰ **Timeout error** – API took too long to respond.")
     except Exception as e:
-        await msg.edit(f"❌ Error: {e}")
+        await msg.edit(f"❌ **Error:** `{str(e)[:100]}`")
 
-@app.on_message(filters.command("debug") & filters.user(ADMIN_ID))
-async def debug(client, message):
-    """Check bot admin status and user membership."""
-    await message.reply_text(f"🔍 **Debug**\nChannel ID: `{FSUB_ID}`", quote=True)
-    # Check bot
-    try:
-        me = await client.get_me()
-        bot_member = await client.get_chat_member(FSUB_ID, me.id)
-        await message.reply_text(f"✅ Bot status: `{bot_member.status}`", quote=True)
-    except ChatAdminRequired:
-        await message.reply_text("❌ **Bot is NOT admin** in the channel!\nAdd bot as admin with 'Get Members' permission.", quote=True)
-        return
-    except Exception as e:
-        await message.reply_text(f"❌ Bot error: {e}", quote=True)
-        return
-    # Check user
-    try:
-        member = await client.get_chat_member(FSUB_ID, message.from_user.id)
-        await message.reply_text(f"✅ Your status: `{member.status}`\nYou ARE a member.", quote=True)
-    except UserNotParticipant:
-        await message.reply_text("❌ You are NOT a member of the channel.", quote=True)
-    except Exception as e:
-        await message.reply_text(f"❌ Error: {e}", quote=True)
-
+# ==================== RUN BOT ====================
 if __name__ == "__main__":
     from threading import Thread
     port = int(os.environ.get("PORT", 8080))
     Thread(target=lambda: server.run(host="0.0.0.0", port=port)).start()
-    print("Bot started. Send /debug to check force-sub status.")
+    print("🚀 Bot is starting...")
+    print(f"Channel button link: {CHANNEL_LINK}")
     app.run()
