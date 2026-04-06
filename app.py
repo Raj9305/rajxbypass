@@ -4,10 +4,10 @@ import time
 from flask import Flask
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from pyrogram.errors import UserNotParticipant
+from pyrogram.errors import UserNotParticipant, ChatAdminRequired
 from pymongo import MongoClient
 
-# ==================== CONFIGURATION (EDIT THESE) ====================
+# ==================== CONFIGURATION ====================
 API_ID = int(os.environ.get("API_ID", "123456"))          # Get from my.telegram.org
 API_HASH = os.environ.get("API_HASH", "your_api_hash")
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "your_bot_token")
@@ -15,10 +15,10 @@ MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 ADMIN_ID = int(os.environ.get("ADMIN_ID", "123456789"))   # Your Telegram user ID
 BYPASS_API_KEY = os.environ.get("BYPASS_API_KEY", "SH4DAW-D4DY")
 
-# ========== FORCE SUBSCRIBE - EDIT THESE TWO LINES ==========
-FSUB_ID = -1003898508261       # <--- REPLACE with your channel ID (with -100)
-FORCE_SUB_LINK = "https://t.me/+HpoHOHMq0VpiYWVl"  # <--- REPLACE with your invite link
-# ==============================================================
+# ========== FORCE SUBSCRIBE (YOUR VALUES) ==========
+FSUB_ID = -1003898508261                      # Your channel ID
+FORCE_SUB_LINK = "https://t.me/+HpoHOHMq0VpiYWVl"   # Your invite link
+# ====================================================
 
 # ==================== DATABASE SETUP ====================
 db_client = MongoClient(MONGO_URL)
@@ -72,9 +72,12 @@ async def check_fsub(client, user_id):
         return member.status in ("member", "administrator", "creator")
     except UserNotParticipant:
         return False
+    except ChatAdminRequired:
+        print("⚠️ Bot is not admin in the force-sub channel!")
+        return False
     except Exception as e:
         print(f"check_fsub error: {e}")
-        return False   # Change to False to be strict
+        return False
 
 async def force_sub_button():
     return InlineKeyboardMarkup([
@@ -83,7 +86,7 @@ async def force_sub_button():
     ])
 
 # ==================== AUTO-APPROVE JOIN REQUESTS ====================
-@app.on_chat_join_request(filters.chat(FSUB_ID) if FSUB_ID else filters.chat([]))
+@app.on_chat_join_request(filters.chat(FSUB_ID))
 async def auto_approve_join(client, request):
     try:
         await request.approve()
@@ -257,7 +260,6 @@ async def start_cmd(client, message):
 
     # Check force subscribe
     if not await check_fsub(client, user_id):
-        # Not joined: show join button only
         await message.reply_text(
             f"👋 **Hello {message.from_user.first_name}!**\n\n"
             "⚠️ **You must join our channel to use this bot.**\n"
