@@ -50,6 +50,13 @@ def ban_user(user_id):
 def unban_user(user_id):
     banned_col.delete_one({"user_id": user_id})
 
+async def send_reaction_safe(client, chat_id, message_id, emoji):
+    """Safely send reaction, ignore errors (e.g., group doesn't allow reactions)"""
+    try:
+        await client.send_reaction(chat_id, message_id, emoji)
+    except Exception:
+        pass  # Silently ignore if reaction fails
+
 # ==================== WELCOME MESSAGE FUNCTION ====================
 async def send_welcome(client, message, is_group=False):
     user_id = message.from_user.id
@@ -102,15 +109,15 @@ async def callback_handler(client, callback_query):
             "1️⃣ Send me any shortlink.\n"
             "2️⃣ I will bypass it and give you the **direct link**.\n"
             "3️⃣ Add me to your group – I will work there too.\n\n"
-            "**Supported shortlink types (examples):**\n"
-            "• `earnlinks.com`\n"
-            "• `vplink.com`\n"
-            "• `gplinks.com`\n"
-            "• `indianshortner.in`\n"
-            "• `exe.io`\n"
-            "• `shortingly.com`\n"
+            "**✨ Supported shortlink types (examples):**\n"
+            "• `earnlinks.com` 💰\n"
+            "• `vplink.com` 🔗\n"
+            "• `gplinks.com` 🚀\n"
+            "• `indianshortner.in` 🇮🇳\n"
+            "• `exe.io` ⚡\n"
+            "• `shortingly.com` ✂️\n"
             "• Many more...\n\n"
-            "**Commands:**\n"
+            "**📌 Commands:**\n"
             "/start – Main menu\n"
             "/help – This message\n\n"
             "👩‍💻 **Developer:** @ffofcchat"
@@ -225,22 +232,22 @@ async def help_cmd(client, message):
         "1️⃣ Send me any shortlink.\n"
         "2️⃣ I will bypass it and give you the **direct link**.\n"
         "3️⃣ Add me to your group – I will work there too.\n\n"
-        "**Supported shortlink types (examples):**\n"
-        "• `earnlinks.com`\n"
-        "• `vplink.com`\n"
-        "• `gplinks.com`\n"
-        "• `indianshortner.in`\n"
-        "• `exe.io`\n"
-        "• `shortingly.com`\n"
+        "**✨ Supported shortlink types (examples):**\n"
+        "• `earnlinks.com` 💰\n"
+        "• `vplink.com` 🔗\n"
+        "• `gplinks.com` 🚀\n"
+        "• `indianshortner.in` 🇮🇳\n"
+        "• `exe.io` ⚡\n"
+        "• `shortingly.com` ✂️\n"
         "• Many more...\n\n"
-        "**Commands:**\n"
+        "**📌 Commands:**\n"
         "/start – Main menu\n"
         "/help – This message\n\n"
         "👩‍💻 **Developer:** @ffofcchat"
     )
     await message.reply_text(help_text, quote=True)
 
-# ==================== BYPASS LOGIC (PRIVATE & GROUP) ====================
+# ==================== BYPASS HANDLER (PRIVATE & GROUP) ====================
 @app.on_message(filters.text & ~filters.command(["start", "help", "stats", "users", "groups", "broadcast", "ban", "unban", "leave"]))
 async def bypass_handler(client, message):
     # Ignore if not a link
@@ -265,12 +272,11 @@ async def bypass_handler(client, message):
 # ==================== COMMON BYPASS FUNCTION ====================
 async def process_bypass(client, message, link):
     start_time = time.time()
-    # Send "thinking" reaction
-    try:
-        await client.send_reaction(message.chat.id, message.id, "👀")
-    except Exception as e:
-        print(f"Reaction error (👀): {e}")
+    
+    # Send "thinking" reaction (safe)
+    await send_reaction_safe(client, message.chat.id, message.id, "👀")
 
+    # Send quoted "processing" message
     msg = await message.reply_text("🔍 **Processing your link...**", quote=True)
 
     try:
@@ -291,13 +297,10 @@ async def process_bypass(client, message, link):
                 f"⏱️ **Time:** `{time_taken:.2f}s`\n"
                 f"👤 **User:** @{message.from_user.username or 'User'}\n"
                 f"🤖 **Bot:** @{app.me.username}\n"
-                f"🚀 **Dev:** @ffofcchat"
+                f"👩‍💻 **Dev:** @ffofcchat"
             )
             # Send success reaction
-            try:
-                await client.send_reaction(message.chat.id, message.id, "🔥")
-            except Exception as e:
-                print(f"Reaction error (🔥): {e}")
+            await send_reaction_safe(client, message.chat.id, message.id, "🔥")
             await msg.edit(response_text, disable_web_page_preview=False)
         else:
             await msg.edit("❌ **Bypass Failed!**\nReason: Link not supported or API error.")
