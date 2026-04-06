@@ -7,34 +7,27 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.errors import UserNotParticipant, ChatAdminRequired
 from pymongo import MongoClient
 
-# ==================== CONFIGURATION ====================
-API_ID = int(os.environ.get("API_ID", "123456"))          # Get from my.telegram.org
+# ==================== CONFIGURATION (EDIT THESE) ====================
+API_ID = int(os.environ.get("API_ID", "123456"))
 API_HASH = os.environ.get("API_HASH", "your_api_hash")
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "your_bot_token")
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
-ADMIN_ID = int(os.environ.get("ADMIN_ID", "123456789"))   # Your Telegram user ID
+ADMIN_ID = int(os.environ.get("ADMIN_ID", "123456789"))
 BYPASS_API_KEY = os.environ.get("BYPASS_API_KEY", "SH4DAW-D4DY")
 
-# ========== FORCE SUBSCRIBE (YOUR VALUES) ==========
-FSUB_ID = -1003898508261                      # Your channel ID
+# ========== FORCE SUBSCRIBE (YOUR VALUES - HARDCODED) ==========
+FSUB_ID = -1003898508261                       # Your channel ID
 FORCE_SUB_LINK = "https://t.me/+HpoHOHMq0VpiYWVl"   # Your invite link
-# ====================================================
+# ================================================================
 
-# ==================== DATABASE SETUP ====================
+# ==================== DATABASE ====================
 db_client = MongoClient(MONGO_URL)
 db = db_client['BypassBotDB']
 users_col = db['users']
 groups_col = db['groups']
 banned_col = db['banned']
-settings_col = db['settings']
 
-# Override from DB if exists (optional)
-settings = settings_col.find_one({"_id": "fsub"})
-if settings:
-    FSUB_ID = settings.get("fsub_id", FSUB_ID)
-    FORCE_SUB_LINK = settings.get("fsub_link", FORCE_SUB_LINK)
-
-# ==================== FLASK WEB SERVER ====================
+# ==================== FLASK ====================
 server = Flask(__name__)
 
 @server.route('/')
@@ -64,7 +57,7 @@ def unban_user(user_id):
     banned_col.delete_one({"user_id": user_id})
 
 async def check_fsub(client, user_id):
-    """Returns True if user has joined the required channel"""
+    """Returns True if user is member of the force-sub channel"""
     if not FSUB_ID or FSUB_ID == 0:
         return True
     try:
@@ -73,7 +66,8 @@ async def check_fsub(client, user_id):
     except UserNotParticipant:
         return False
     except ChatAdminRequired:
-        print("⚠️ Bot is not admin in the force-sub channel!")
+        # Bot is not admin - notify owner once
+        await client.send_message(ADMIN_ID, f"⚠️ **Bot is not admin** in force-sub channel!\nID: `{FSUB_ID}`\nPlease add bot as admin with 'Get Members' permission.")
         return False
     except Exception as e:
         print(f"check_fsub error: {e}")
@@ -92,12 +86,12 @@ async def auto_approve_join(client, request):
         await request.approve()
         await client.send_message(
             request.from_user.id,
-            "✅ **Join request approved!**\n\nYou can now use the bot. Send me any short link to bypass."
+            "✅ **Join request approved!**\n\nYou can now use the bot. Send me any short link."
         )
     except Exception as e:
         print(f"Auto-approve error: {e}")
 
-# ==================== CALLBACK HANDLER (MAKES BUTTONS WORK) ====================
+# ==================== CALLBACK HANDLER ====================
 @app.on_callback_query()
 async def callback_handler(client, callback_query):
     data = callback_query.data
@@ -107,7 +101,7 @@ async def callback_handler(client, callback_query):
         if await check_fsub(client, user_id):
             await callback_query.answer("✅ You are now a member!", show_alert=True)
             await callback_query.message.edit(
-                "✨ **Access Granted!**\n\nNow send me any short link to bypass.",
+                "✨ **Access Granted!**\n\nNow send me any short link.",
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("➕ ADD TO GROUP", url=f"http://t.me/{app.me.username}?startgroup=true")]
                 ])
@@ -226,29 +220,6 @@ async def leave_cmd(client, message):
     except Exception as e:
         await message.reply_text(f"❌ Failed: `{e}`", quote=True)
 
-@app.on_message(filters.command("setfsub") & filters.user(ADMIN_ID))
-async def set_fsub_cmd(client, message):
-    if len(message.command) != 2:
-        return await message.reply_text("Usage: `/setfsub channel_id`\nExample: `-1001234567890`", quote=True)
-    try:
-        fid = int(message.command[1])
-    except:
-        return await message.reply_text("Invalid ID. Must be integer (e.g., -1001234567890).", quote=True)
-    settings_col.update_one({"_id": "fsub"}, {"$set": {"fsub_id": fid}}, upsert=True)
-    global FSUB_ID
-    FSUB_ID = fid
-    await message.reply_text(f"✅ Force-sub channel ID set to `{fid}`.", quote=True)
-
-@app.on_message(filters.command("setlink") & filters.user(ADMIN_ID))
-async def set_link_cmd(client, message):
-    if len(message.command) != 2:
-        return await message.reply_text("Usage: `/setlink invite_link`", quote=True)
-    link = message.command[1]
-    settings_col.update_one({"_id": "fsub"}, {"$set": {"fsub_link": link}}, upsert=True)
-    global FORCE_SUB_LINK
-    FORCE_SUB_LINK = link
-    await message.reply_text(f"✅ Force-sub link set to `{link}`.", quote=True)
-
 # ==================== START COMMAND ====================
 @app.on_message(filters.command("start") & filters.private)
 async def start_cmd(client, message):
@@ -263,7 +234,8 @@ async def start_cmd(client, message):
         await message.reply_text(
             f"👋 **Hello {message.from_user.first_name}!**\n\n"
             "⚠️ **You must join our channel to use this bot.**\n"
-            "Click the button below, then press **I've Joined**.",
+            "Click the button below, then press **I've Joined**.\n\n"
+            "If you have already joined, click **I've Joined** to verify.",
             reply_markup=await force_sub_button(),
             quote=True
         )
@@ -290,7 +262,11 @@ async def help_cmd(client, message):
     if is_banned(message.from_user.id):
         return await message.reply_text("🚫 Banned.", quote=True)
     if not await check_fsub(client, message.from_user.id):
-        return await message.reply_text("⚠️ Join our channel first.", reply_markup=await force_sub_button(), quote=True)
+        return await message.reply_text(
+            "⚠️ Join our channel first.",
+            reply_markup=await force_sub_button(),
+            quote=True
+        )
     await message.reply_text(
         "🔍 **How to use me**\n\n"
         "1. Send me any shortlink (e.g., exe.io, shortingly.com)\n"
@@ -303,7 +279,7 @@ async def help_cmd(client, message):
     )
 
 # ==================== BYPASS LOGIC (PRIVATE) ====================
-@app.on_message(filters.text & ~filters.command(["start", "help", "stats", "users", "groups", "broadcast", "ban", "unban", "leave", "setfsub", "setlink"]) & filters.private)
+@app.on_message(filters.text & ~filters.command(["start", "help", "stats", "users", "groups", "broadcast", "ban", "unban", "leave"]) & filters.private)
 async def bypass_private(client, message):
     user_id = message.from_user.id
     if is_banned(user_id):
@@ -340,7 +316,7 @@ async def bypass_group(client, message):
     if not await check_fsub(client, user_id):
         return await message.reply_text(
             f"👤 **{message.from_user.first_name}**, you must join our channel to use this bot in groups.\n"
-            f"Click below, join, then try again.",
+            f"Click below, join, then click **I've Joined** in private chat with bot.",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("📢 JOIN CHANNEL", url=FORCE_SUB_LINK)]]),
             quote=True
         )
