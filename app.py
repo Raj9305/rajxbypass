@@ -15,9 +15,10 @@ MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 ADMIN_ID = int(os.environ.get("ADMIN_ID", "123456789"))   # Your Telegram user ID
 BYPASS_API_KEY = os.environ.get("BYPASS_API_KEY", "SH4DAW-D4DY")
 
-# ----- FORCE SUBSCRIBE SETTINGS (CHANGE THESE) -----
-FSUB_ID = int(os.environ.get("FSUB_ID", "-1003716177255"))   # Your channel/group ID (with minus sign)
-FORCE_SUB_LINK = os.environ.get("FORCE_SUB_LINK", "http://t.me/+gD6eD6JN3G42OTM9")
+# ========== FORCE SUBSCRIBE - EDIT THESE TWO LINES ==========
+FSUB_ID = -1001234567890        # <--- REPLACE with your channel ID (with -100)
+FORCE_SUB_LINK = "https://t.me/your_channel"  # <--- REPLACE with your invite link
+# ==============================================================
 
 # ==================== DATABASE SETUP ====================
 db_client = MongoClient(MONGO_URL)
@@ -25,9 +26,9 @@ db = db_client['BypassBotDB']
 users_col = db['users']
 groups_col = db['groups']
 banned_col = db['banned']
-settings_col = db['settings']    # For dynamic fsub settings (optional)
+settings_col = db['settings']
 
-# Load saved settings if any (overrides hardcoded values)
+# Override from DB if exists (optional)
 settings = settings_col.find_one({"_id": "fsub"})
 if settings:
     FSUB_ID = settings.get("fsub_id", FSUB_ID)
@@ -64,15 +65,16 @@ def unban_user(user_id):
 
 async def check_fsub(client, user_id):
     """Returns True if user has joined the required channel"""
-    if not FSUB_ID:
+    if not FSUB_ID or FSUB_ID == 0:
         return True
     try:
         member = await client.get_chat_member(FSUB_ID, user_id)
         return member.status in ("member", "administrator", "creator")
     except UserNotParticipant:
         return False
-    except Exception:
-        return True   # Allow if any error (safety)
+    except Exception as e:
+        print(f"check_fsub error: {e}")
+        return False   # Change to False to be strict
 
 async def force_sub_button():
     return InlineKeyboardMarkup([
@@ -253,15 +255,19 @@ async def start_cmd(client, message):
     if is_banned(user_id):
         return await message.reply_text("🚫 **You are banned from using this bot.**", quote=True)
 
+    # Check force subscribe
     if not await check_fsub(client, user_id):
-        return await message.reply_text(
+        # Not joined: show join button only
+        await message.reply_text(
             f"👋 **Hello {message.from_user.first_name}!**\n\n"
             "⚠️ **You must join our channel to use this bot.**\n"
             "Click the button below, then press **I've Joined**.",
             reply_markup=await force_sub_button(),
             quote=True
         )
+        return
 
+    # Joined: full menu
     buttons = InlineKeyboardMarkup([
         [InlineKeyboardButton("➕ ADD TO GROUP", url=f"http://t.me/{app.me.username}?startgroup=true")],
         [InlineKeyboardButton("ℹ️ HELP", callback_data="help"),
@@ -320,7 +326,6 @@ async def bypass_group(client, message):
     user_id = message.from_user.id
     chat_id = message.chat.id
 
-    # Save group to database
     add_group(chat_id, message.chat.title)
 
     if is_banned(user_id):
@@ -343,7 +348,6 @@ async def bypass_group(client, message):
 # ==================== COMMON BYPASS FUNCTION ====================
 async def process_bypass(client, message, link):
     start_time = time.time()
-    # Send "thinking" reaction
     try:
         await client.send_reaction(message.chat.id, message.id, "👀")
     except:
@@ -371,7 +375,6 @@ async def process_bypass(client, message, link):
                 f"🤖 **Bot:** @{app.me.username}\n"
                 f"👩‍💻 **Dev:** @AAVYAXBOTS"
             )
-            # Send success reaction
             try:
                 await client.send_reaction(message.chat.id, message.id, "🔥")
             except:
