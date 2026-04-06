@@ -8,11 +8,11 @@ from pyrogram.errors import UserNotParticipant, ChatAdminRequired
 from pymongo import MongoClient
 
 # ==================== CONFIGURATION (EDIT THESE) ====================
-API_ID = int(os.environ.get("API_ID", "123456"))
+API_ID = int(os.environ.get("API_ID", "123456"))          # Get from my.telegram.org
 API_HASH = os.environ.get("API_HASH", "your_api_hash")
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "your_bot_token")
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
-ADMIN_ID = int(os.environ.get("ADMIN_ID", "123456789"))
+ADMIN_ID = int(os.environ.get("ADMIN_ID", "123456789"))   # Your Telegram user ID
 BYPASS_API_KEY = os.environ.get("BYPASS_API_KEY", "SH4DAW-D4DY")
 
 # ========== FORCE SUBSCRIBE (YOUR VALUES - HARDCODED) ==========
@@ -56,9 +56,9 @@ def ban_user(user_id):
 def unban_user(user_id):
     banned_col.delete_one({"user_id": user_id})
 
-async def check_fsub(client, user_id):
-    """Returns True if user is member of the force-sub channel"""
-    if not FSUB_ID or FSUB_ID == 0:
+async def check_membership(client, user_id):
+    """Returns True if user is a member of the force-sub channel."""
+    if not FSUB_ID:
         return True
     try:
         member = await client.get_chat_member(FSUB_ID, user_id)
@@ -66,14 +66,14 @@ async def check_fsub(client, user_id):
     except UserNotParticipant:
         return False
     except ChatAdminRequired:
-        # Bot is not admin - notify owner once
+        # Bot is not admin – notify owner
         await client.send_message(ADMIN_ID, f"⚠️ **Bot is not admin** in force-sub channel!\nID: `{FSUB_ID}`\nPlease add bot as admin with 'Get Members' permission.")
         return False
     except Exception as e:
-        print(f"check_fsub error: {e}")
+        print(f"check_membership error: {e}")
         return False
 
-async def force_sub_button():
+async def force_sub_keyboard():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("📢 JOIN CHANNEL", url=FORCE_SUB_LINK)],
         [InlineKeyboardButton("🔄 I've Joined", callback_data="check_join")]
@@ -81,7 +81,7 @@ async def force_sub_button():
 
 # ==================== AUTO-APPROVE JOIN REQUESTS ====================
 @app.on_chat_join_request(filters.chat(FSUB_ID))
-async def auto_approve_join(client, request):
+async def auto_approve(client, request):
     try:
         await request.approve()
         await client.send_message(
@@ -98,8 +98,8 @@ async def callback_handler(client, callback_query):
     user_id = callback_query.from_user.id
 
     if data == "check_join":
-        if await check_fsub(client, user_id):
-            await callback_query.answer("✅ You are now a member!", show_alert=True)
+        if await check_membership(client, user_id):
+            await callback_query.answer("✅ Verified! You can use the bot.", show_alert=True)
             await callback_query.message.edit(
                 "✨ **Access Granted!**\n\nNow send me any short link.",
                 reply_markup=InlineKeyboardMarkup([
@@ -220,6 +220,33 @@ async def leave_cmd(client, message):
     except Exception as e:
         await message.reply_text(f"❌ Failed: `{e}`", quote=True)
 
+# ==================== DEBUG COMMAND (FIND ISSUES) ====================
+@app.on_message(filters.command("debug") & filters.user(ADMIN_ID))
+async def debug_command(client, message):
+    user_id = message.from_user.id
+    await message.reply_text(f"🔍 **Debug Info**\n\nChecking channel `{FSUB_ID}`...", quote=True)
+
+    # Check bot membership in channel
+    try:
+        bot_self = await client.get_me()
+        bot_member = await client.get_chat_member(FSUB_ID, bot_self.id)
+        await message.reply_text(f"✅ Bot is admin? `{bot_member.status}`", quote=True)
+    except ChatAdminRequired:
+        await message.reply_text("❌ **Bot is NOT an admin** in the channel!\nPlease add bot as admin with 'Get Members' permission.", quote=True)
+        return
+    except Exception as e:
+        await message.reply_text(f"❌ Bot membership error: `{e}`", quote=True)
+        return
+
+    # Check user membership
+    try:
+        member = await client.get_chat_member(FSUB_ID, user_id)
+        await message.reply_text(f"✅ Your status: `{member.status}`\nYou ARE a member.", quote=True)
+    except UserNotParticipant:
+        await message.reply_text("❌ You are **NOT** a member of the channel.\nPlease join using the invite link.", quote=True)
+    except Exception as e:
+        await message.reply_text(f"❌ Error checking your membership: `{e}`", quote=True)
+
 # ==================== START COMMAND ====================
 @app.on_message(filters.command("start") & filters.private)
 async def start_cmd(client, message):
@@ -229,19 +256,16 @@ async def start_cmd(client, message):
     if is_banned(user_id):
         return await message.reply_text("🚫 **You are banned from using this bot.**", quote=True)
 
-    # Check force subscribe
-    if not await check_fsub(client, user_id):
+    if not await check_membership(client, user_id):
         await message.reply_text(
             f"👋 **Hello {message.from_user.first_name}!**\n\n"
             "⚠️ **You must join our channel to use this bot.**\n"
-            "Click the button below, then press **I've Joined**.\n\n"
-            "If you have already joined, click **I've Joined** to verify.",
-            reply_markup=await force_sub_button(),
+            "Click the button below, then press **I've Joined**.",
+            reply_markup=await force_sub_keyboard(),
             quote=True
         )
         return
 
-    # Joined: full menu
     buttons = InlineKeyboardMarkup([
         [InlineKeyboardButton("➕ ADD TO GROUP", url=f"http://t.me/{app.me.username}?startgroup=true")],
         [InlineKeyboardButton("ℹ️ HELP", callback_data="help"),
@@ -261,10 +285,10 @@ async def start_cmd(client, message):
 async def help_cmd(client, message):
     if is_banned(message.from_user.id):
         return await message.reply_text("🚫 Banned.", quote=True)
-    if not await check_fsub(client, message.from_user.id):
+    if not await check_membership(client, message.from_user.id):
         return await message.reply_text(
             "⚠️ Join our channel first.",
-            reply_markup=await force_sub_button(),
+            reply_markup=await force_sub_keyboard(),
             quote=True
         )
     await message.reply_text(
@@ -279,7 +303,7 @@ async def help_cmd(client, message):
     )
 
 # ==================== BYPASS LOGIC (PRIVATE) ====================
-@app.on_message(filters.text & ~filters.command(["start", "help", "stats", "users", "groups", "broadcast", "ban", "unban", "leave"]) & filters.private)
+@app.on_message(filters.text & ~filters.command(["start", "help", "stats", "users", "groups", "broadcast", "ban", "unban", "leave", "debug"]) & filters.private)
 async def bypass_private(client, message):
     user_id = message.from_user.id
     if is_banned(user_id):
@@ -289,10 +313,10 @@ async def bypass_private(client, message):
     if "http" not in link:
         return
 
-    if not await check_fsub(client, user_id):
+    if not await check_membership(client, user_id):
         return await message.reply_text(
             "⚠️ **Access Denied!**\nPlease join our channel first.",
-            reply_markup=await force_sub_button(),
+            reply_markup=await force_sub_keyboard(),
             quote=True
         )
 
@@ -313,7 +337,7 @@ async def bypass_group(client, message):
     if "http" not in link:
         return
 
-    if not await check_fsub(client, user_id):
+    if not await check_membership(client, user_id):
         return await message.reply_text(
             f"👤 **{message.from_user.first_name}**, you must join our channel to use this bot in groups.\n"
             f"Click below, join, then click **I've Joined** in private chat with bot.",
@@ -351,7 +375,7 @@ async def process_bypass(client, message, link):
                 f"⏱️ **Time:** `{time_taken:.2f}s`\n"
                 f"👤 **User:** @{message.from_user.username or 'User'}\n"
                 f"🤖 **Bot:** @{app.me.username}\n"
-                f"👩‍💻 **Dev:** @AAVYAXBOTS"
+                f"👩‍💻 **Dev:** @FFOFCCHAT"
             )
             try:
                 await client.send_reaction(message.chat.id, message.id, "🔥")
@@ -371,4 +395,6 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     Thread(target=lambda: server.run(host="0.0.0.0", port=port)).start()
     print("🚀 Bot is starting...")
+    print(f"Force-sub channel: {FSUB_ID} | Link: {FORCE_SUB_LINK}")
+    print("Make sure the bot is an ADMIN in that channel!")
     app.run()
